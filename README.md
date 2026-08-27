@@ -45,7 +45,35 @@ Usage counters from ccusage are **cumulative per session**. Ingestion upserts th
 
 ## Installation
 
+### npx (recommended)
+
+From npm (after the package is published):
+
 ```bash
+npx agent-usage
+npx agent-usage setup
+```
+
+From GitHub (works immediately):
+
+```bash
+npx github:michaelmang/agent-usage
+npx github:michaelmang/agent-usage setup
+```
+
+Requires Node.js 20+ and a working C/C++ toolchain for `better-sqlite3` (Xcode CLI tools on macOS: `xcode-select --install`).
+
+### Global install
+
+```bash
+npm install -g agent-usage
+agent-usage setup
+```
+
+### From source
+
+```bash
+git clone https://github.com/michaelmang/agent-usage.git
 cd agent-usage
 npm install
 npm run build

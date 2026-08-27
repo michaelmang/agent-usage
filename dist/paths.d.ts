@@ -1,0 +1,14 @@
+export declare const HOME: string;
+export declare const CONFIG_DIR: string;
+export declare const CONFIG_PATH: string;
+export declare const DATA_DIR: string;
+export declare const DB_PATH: string;
+export declare const SNAPSHOT_DIR: string;
+export declare const LOG_DIR: string;
+export declare const CACHE_DIR: string;
+export declare const CLAUDE_PROJECTS_DIR: string;
+export declare const CODEX_SESSIONS_DIR: string;
+export declare const LAUNCH_AGENT_LABEL = "com.michael.agent-usage.daily";
+export declare const LAUNCH_AGENT_PATH: string;
+export declare const UNASSIGNED_PATH = "__unassigned__";
+export declare const UNASSIGNED_NAME = "Unassigned";

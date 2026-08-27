@@ -4,12 +4,31 @@
   "description": "Local Claude Code + Codex usage analytics by Git repository/project",
   "license": "MIT",
   "type": "module",
+  "author": "michaelmang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/michaelmang/agent-usage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/michaelmang/agent-usage/issues"
+  },
+  "homepage": "https://github.com/michaelmang/agent-usage#readme",
+  "keywords": [
+    "claude",
+    "codex",
+    "ccusage",
+    "usage",
+    "tokens",
+    "cli",
+    "sqlite"
+  ],
   "bin": {
     "agent-usage": "./dist/cli.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
