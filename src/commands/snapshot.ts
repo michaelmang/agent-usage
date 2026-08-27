@@ -19,11 +19,17 @@ function packageVersion(): string {
   }
 }
 
-export async function takeSnapshot(opts?: { json?: boolean }): Promise<{
+import { notifyUsageSnapshot } from "../util/notify.js";
+
+export async function takeSnapshot(opts?: {
+  json?: boolean;
+  notify?: boolean;
+}): Promise<{
   date: string;
   jsonPath: string;
   txtPath: string;
   syncMessage: string;
+  notifyMessage?: string;
 }> {
   const sync = await syncUsage({ force: true });
   const config = loadConfig();
@@ -65,9 +71,19 @@ export async function takeSnapshot(opts?: { json?: boolean }): Promise<{
   );
   writeFileSync(txtPath, formatReportText(report) + "\n", "utf8");
 
+  let notifyMessage: string | undefined;
+  if (opts?.notify) {
+    const notify = notifyUsageSnapshot({ date, file: jsonPath });
+    notifyMessage = notify.message;
+    if (!notify.ok) {
+      // Do not fail the snapshot if phone notification is unavailable.
+      notifyMessage = `Notification skipped: ${notify.message}`;
+    }
+  }
+
   if (opts?.json) {
     // caller handles json output of snapshot meta
   }
 
-  return { date, jsonPath, txtPath, syncMessage: sync.message };
+  return { date, jsonPath, txtPath, syncMessage: sync.message, notifyMessage };
 }

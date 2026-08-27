@@ -18,6 +18,7 @@ function packageVersion() {
         return "0.0.0";
     }
 }
+import { notifyUsageSnapshot } from "../util/notify.js";
 export async function takeSnapshot(opts) {
     const sync = await syncUsage({ force: true });
     const config = loadConfig();
@@ -45,8 +46,17 @@ export async function takeSnapshot(opts) {
         report,
     }, null, 2), "utf8");
     writeFileSync(txtPath, formatReportText(report) + "\n", "utf8");
+    let notifyMessage;
+    if (opts?.notify) {
+        const notify = notifyUsageSnapshot({ date, file: jsonPath });
+        notifyMessage = notify.message;
+        if (!notify.ok) {
+            // Do not fail the snapshot if phone notification is unavailable.
+            notifyMessage = `Notification skipped: ${notify.message}`;
+        }
+    }
     if (opts?.json) {
         // caller handles json output of snapshot meta
     }
-    return { date, jsonPath, txtPath, syncMessage: sync.message };
+    return { date, jsonPath, txtPath, syncMessage: sync.message, notifyMessage };
 }

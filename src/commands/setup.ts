@@ -52,9 +52,13 @@ export async function runSetup(opts?: { yes?: boolean }): Promise<void> {
   }
 
   if (install) {
-    const result = installScheduler();
+    const notify = Boolean(process.env.NTFY_TOPIC);
+    const result = installScheduler({ notify });
     console.log(`Installed LaunchAgent: ${result.plistPath}`);
-    console.log(`Runs: node ${result.cliPath} snapshot`);
+    console.log(`Runs: node ${result.cliPath} snapshot${result.notify ? " --notify" : ""}`);
+    if (!notify) {
+      console.log("Phone notifications: off (set NTFY_TOPIC to enable with --notify on install)");
+    }
   } else {
     console.log("Skipped scheduler. Install later with: agent-usage install-scheduler");
   }

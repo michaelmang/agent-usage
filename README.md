@@ -144,16 +144,42 @@ agent-usage economics month
 ## Daily scheduler
 
 ```bash
-agent-usage install-scheduler
+agent-usage install-scheduler --notify
+agent-usage scheduler-status
 ```
 
 Installs `~/Library/LaunchAgents/com.michael.agent-usage.daily.plist` to run at **11:55 PM** local time:
 
 ```bash
-node /absolute/path/to/agent-usage/dist/cli.js snapshot
+node /path/to/agent-usage/dist/cli.js snapshot --notify
 ```
 
+With `--notify`, the snapshot is followed by `agent-ping usage`, which sends a compact summary to your phone via ntfy.
+
+**Phone notifications require:**
+
+1. [agent-ping](https://github.com/michaelmang/agent-ping) installed (`npm link` in that repo)
+2. `NTFY_TOPIC` configured (see agent-ping README)
+3. For launchd (no interactive shell), put credentials in `~/.config/agent-ping/env`:
+
+```bash
+mkdir -p ~/.config/agent-ping
+cat > ~/.config/agent-ping/env <<'EOF'
+NTFY_TOPIC=your-long-random-topic
+# NTFY_TOKEN=tk_...
+EOF
+```
+
+Then reinstall the scheduler so the plist picks up `--notify` and environment variables.
+
 Logs: `~/.local/share/agent-usage/logs/`
+
+Test the full chain manually:
+
+```bash
+agent-usage snapshot --notify
+agent-ping usage --best-effort
+```
 
 ## Data locations
 

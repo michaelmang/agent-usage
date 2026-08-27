@@ -220,13 +220,16 @@ program
     .command("snapshot")
     .description("Sync and write daily snapshot artifacts")
     .option("--json", "Output JSON", false)
+    .option("--notify", "Send phone notification via agent-ping", false)
     .action(async (opts) => {
-    const result = await takeSnapshot();
+    const result = await takeSnapshot({ notify: opts.notify });
     if (wantJson(opts))
         console.log(JSON.stringify(result, null, 2));
     else {
         console.log(`Snapshot ${result.date}`);
         console.log(result.syncMessage);
+        if (result.notifyMessage)
+            console.log(result.notifyMessage);
         console.log(result.txtPath);
         console.log(result.jsonPath);
     }
@@ -241,10 +244,20 @@ program
 program
     .command("install-scheduler")
     .description("Install LaunchAgent for daily 11:55 PM snapshots")
-    .action(() => {
-    const result = installScheduler();
+    .option("--notify", "Also send daily phone notification via agent-ping", false)
+    .option("--no-notify", "Disable phone notifications even if NTFY_TOPIC is set", false)
+    .action((opts) => {
+    const notify = opts.noNotify
+        ? false
+        : opts.notify || Boolean(process.env.NTFY_TOPIC);
+    const result = installScheduler({ notify });
     console.log(`Installed ${result.plistPath}`);
     console.log(`CLI: ${result.cliPath}`);
+    console.log(`Runs: snapshot${result.notify ? " --notify" : ""}`);
+    if (result.notify && !process.env.NTFY_TOPIC) {
+        console.log("");
+        console.log("Tip: set NTFY_TOPIC in ~/.config/agent-ping/env so launchd can send notifications.");
+    }
 });
 program
     .command("uninstall-scheduler")
@@ -264,6 +277,7 @@ program
     else {
         console.log(`Installed: ${status.installed}`);
         console.log(`Loaded: ${status.loaded}`);
+        console.log(`Notify: ${status.notify ? "yes (agent-ping)" : "no"}`);
         console.log(`Plist: ${status.plistPath}`);
     }
 });
