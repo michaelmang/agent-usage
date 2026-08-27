@@ -54,16 +54,20 @@ export function formatClock(d = new Date()): string {
 }
 
 export function displayModel(model: string): string {
-  return model
-    .replace(/^claude-/, "Claude ")
-    .replace(/^gpt-/, "GPT-")
-    .replace(/-(\d)/g, " $1")
-    .replace(/\bopus\b/gi, "Opus")
-    .replace(/\bsonnet\b/gi, "Sonnet")
-    .replace(/\bhaiku\b/gi, "Haiku")
-    .replace(/\bterra\b/gi, "Terra")
-    .replace(/\bsol\b/gi, "Sol")
-    .replace(/\bcodex\b/gi, "Codex");
+  const known: Record<string, string> = {
+    "claude-opus-4-8": "Claude Opus 4.8",
+    "claude-opus-5": "Claude Opus 5",
+    "claude-sonnet-5": "Claude Sonnet 5",
+    "claude-sonnet-4": "Claude Sonnet 4",
+    "claude-haiku-4-5": "Claude Haiku 4.5",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+    "gpt-5.5": "GPT-5.5",
+    "gpt-5.4": "GPT-5.4",
+    "gpt-5.2-codex": "GPT-5.2 Codex",
+  };
+  if (known[model]) return known[model];
+  return model;
 }
 
 export function displayProvider(provider: string): string {
