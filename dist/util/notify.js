@@ -1,8 +1,32 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
+const AGENT_PING_ENV_FILE = join(homedir(), ".config", "agent-ping", "env");
+/** Load agent-ping env file (supports `export KEY=value` lines). */
+export function loadAgentPingEnv() {
+    if (!existsSync(AGENT_PING_ENV_FILE))
+        return;
+    for (const line of readFileSync(AGENT_PING_ENV_FILE, "utf8").split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#"))
+            continue;
+        const eq = trimmed.indexOf("=");
+        if (eq <= 0)
+            continue;
+        let key = trimmed.slice(0, eq).trim();
+        if (key.startsWith("export "))
+            key = key.slice("export ".length).trim();
+        let value = trimmed.slice(eq + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (!process.env[key])
+            process.env[key] = value;
+    }
+}
 export function resolveAgentPingBin() {
     const candidates = [];
     try {
@@ -34,6 +58,7 @@ export function resolveAgentPingBin() {
     return null;
 }
 export function notifyUsageSnapshot(opts) {
+    loadAgentPingEnv();
     const bin = resolveAgentPingBin();
     if (!bin) {
         return {
@@ -41,7 +66,7 @@ export function notifyUsageSnapshot(opts) {
             message: "agent-ping not found on PATH (install with: npm link in agent-ping)",
         };
     }
-    const args = [bin, "usage", "--best-effort", "--quiet"];
+    const args = [bin, "usage", "--quiet"];
     if (opts?.date)
         args.push("--date", opts.date);
     if (opts?.file)
@@ -57,7 +82,7 @@ export function notifyUsageSnapshot(opts) {
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
     });
-    if (result.status === 0) {
+    if (result.status === 0 && !(result.stderr || "").includes("agent-ping:")) {
         return { ok: true, message: (result.stdout || "").trim() || "Notification sent" };
     }
     return {
@@ -91,6 +116,9 @@ export function ntfyEnvForLaunchd() {
         "NTFY_TAGS",
         "NTFY_ICON",
         "NTFY_USAGE_ICON",
+        "NTFY_CLAUDE_ICON",
+        "NTFY_CODEX_ICON",
+        "NTFY_CURSOR_ICON",
     ]) {
         const value = process.env[key];
         if (value)

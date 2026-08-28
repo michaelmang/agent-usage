@@ -70,6 +70,12 @@ export function displayModel(model: string): string {
   return model;
 }
 
+export function displayModelEffort(model: string, effort?: string | null): string {
+  const label = displayModel(model);
+  if (!effort) return label;
+  return `${label} (${effort})`;
+}
+
 export function displayProvider(provider: string): string {
   if (provider === "claude") return "Claude";
   if (provider === "codex") return "Codex";
@@ -79,4 +85,35 @@ export function displayProvider(provider: string): string {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+export function truncateText(text: string, max: number): string {
+  const trimmed = text.trim();
+  if (max <= 0) return "";
+  if (trimmed.length <= max) return trimmed;
+  if (max === 1) return "…";
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+const GIT_DIFF_STATS = /^\d+\s+files?\s+changed\b/i;
+
+/** Prefer commit message over `git` stdout diff summaries. */
+export function pickCommitSubject(subject?: string | null): string {
+  const trimmed = subject?.trim() ?? "";
+  if (!trimmed) return "";
+  if (GIT_DIFF_STATS.test(trimmed)) return truncateText(trimmed, 32);
+  return trimmed;
+}
+
+export function mergeCommitSubjects(
+  a?: string | null,
+  b?: string | null,
+): string | undefined {
+  const sa = a?.trim() ?? "";
+  const sb = b?.trim() ?? "";
+  const aStats = sa ? GIT_DIFF_STATS.test(sa) : true;
+  const bStats = sb ? GIT_DIFF_STATS.test(sb) : true;
+  if (sa && !aStats) return sa;
+  if (sb && !bStats) return sb;
+  return sa || sb || undefined;
 }

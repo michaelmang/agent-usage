@@ -1,0 +1,55 @@
+---
+title: agent-usage
+description: Local-first analytics for Claude Code and Codex CLI — attributed to Git projects, with snapshots, LLM reviews, heuristic recommendations, and JIT execution harnesses.
+---
+
+**agent-usage** tracks how you spend tokens and API-equivalent cost across **Claude Code** and **OpenAI Codex CLI**, grouped by the Git repository where each session ran.
+
+It does **not** reimplement pricing math. It wraps [`ccusage`](https://github.com/ryoppippi/ccusage) for token totals and cost, then joins that data to local session metadata (cwd, session id, timestamps). Prompts and responses are **never** stored.
+
+:::note
+Everything stays on your machine. The database holds paths, counts, costs, and commit subjects — not source code or transcripts.
+:::
+
+## What you can do
+
+| Capability | Command / surface |
+|------------|-------------------|
+| Daily / weekly usage reports | `agent-usage today`, `week`, `project` |
+| Phone snapshot notifications | `install-scheduler --notify` + [agent-ping](https://github.com/michaelmang/agent-ping) |
+| LLM workflow review | `review` |
+| Heuristic model/effort tips | `recommend today` or `recommend "<task>"` |
+| JIT execution harnesses | `jit "<task>"` |
+| Local web dashboard | `web/` Next.js app |
+
+## Architecture
+
+```text
+Claude session logs ─┐
+                     ├─> project resolver ─┐
+Codex session logs ──┘                     │
+                                           ├─> SQLite
+ccusage JSON ─────────> token/cost parser ─┘
+        │
+        ├─> CLI reports
+        ├─> daily snapshots
+        ├─> review / recommend / JIT
+        └─> web dashboard
+```
+
+## Quick start
+
+```bash
+npx github:michaelmang/agent-usage setup
+agent-usage today
+```
+
+See [Installation](/getting-started/installation) for global install, config, and scheduler setup.
+
+## Requirements
+
+- **Node.js 20+** (22.12+ for the [Blume docs site](/getting-started/documentation-site))
+- `git` on PATH
+- Existing Claude Code and/or Codex session logs under `~/.claude` and `~/.codex`
+
+macOS is required only for the optional LaunchAgent daily scheduler.

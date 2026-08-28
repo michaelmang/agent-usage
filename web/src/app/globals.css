@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #0a1118;
+  --foreground: #f0f4f8;
+  --muted: #8b9cb3;
+  --panel: #111b2e;
+  --panel-border: #1e3354;
+  --teal: #34c4b8;
+  --teal-dim: #2dd4bf;
+  --amber: #ffab40;
+  --amber-dim: #f59e0b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
+  --color-teal-accent: var(--teal);
+  --color-amber-accent: var(--amber);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(45, 212, 191, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(255, 171, 64, 0.08), transparent);
+  z-index: 0;
+}
+
+.review-prose h2 {
+  @apply mt-6 mb-3 text-base font-semibold text-teal-300/90 first:mt-0;
+}
+
+.review-prose ul {
+  @apply my-2 list-disc space-y-2 pl-5;
+}
+
+.review-prose p {
+  @apply my-2;
+}
+
+.review-prose strong {
+  @apply font-medium text-slate-200;
+}

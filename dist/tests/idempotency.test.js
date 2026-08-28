@@ -40,10 +40,10 @@ test("idempotent usage upsert does not double-count when replacing baseline tota
        VALUES (?, ?, ?, ?, NULL, NULL, ?)`).run("sess-1", "claude", projectId, "/tmp/proj", "[]");
         const sessionId = db.prepare(`SELECT id FROM sessions`).get().id;
         const replace = db.prepare(`INSERT INTO usage(
-         session_id, date, provider, model, input_tokens, output_tokens,
+         session_id, date, provider, model, effort, input_tokens, output_tokens,
          cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(session_id, date, model) DO UPDATE SET
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, date, model, effort) DO UPDATE SET
          input_tokens = excluded.input_tokens,
          output_tokens = excluded.output_tokens,
          cache_create_tokens = excluded.cache_create_tokens,
@@ -51,9 +51,9 @@ test("idempotent usage upsert does not double-count when replacing baseline tota
          total_tokens = excluded.total_tokens,
          api_equivalent_cost = excluded.api_equivalent_cost,
          captured_at = excluded.captured_at`);
-        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", 1, 2, 3, 4, 10, 1.5, now);
-        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", 1, 2, 3, 4, 10, 1.5, now);
-        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", 1, 2, 3, 4, 10, 1.5, now);
+        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", "", 1, 2, 3, 4, 10, 1.5, now);
+        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", "", 1, 2, 3, 4, 10, 1.5, now);
+        replace.run(sessionId, "2026-08-27", "claude", "claude-sonnet-5", "", 1, 2, 3, 4, 10, 1.5, now);
         const row = db
             .prepare(`SELECT total_tokens, api_equivalent_cost, COUNT(*) AS c FROM usage`)
             .get();
@@ -94,9 +94,9 @@ test("cumulative delta application only adds positive growth", () => {
         assert.equal(dTotal, 40);
         assert.ok(Math.abs(dCost - 0.4) < 1e-9);
         db.prepare(`INSERT INTO usage(
-         session_id, date, provider, model, input_tokens, output_tokens,
+         session_id, date, provider, model, effort, input_tokens, output_tokens,
          cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-       ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?)`).run(sessionId, "2026-08-27", "codex", "gpt-5.6-terra", dTotal, dCost, now);
+       ) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?)`).run(sessionId, "2026-08-27", "codex", "gpt-5.6-terra", "", dTotal, dCost, now);
         // Applying the same cumulative again must not add another delta
         const d2 = nextTotal - nextTotal;
         assert.equal(d2, 0);

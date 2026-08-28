@@ -66,6 +66,12 @@ export function displayModel(model) {
         return known[model];
     return model;
 }
+export function displayModelEffort(model, effort) {
+    const label = displayModel(model);
+    if (!effort)
+        return label;
+    return `${label} (${effort})`;
+}
 export function displayProvider(provider) {
     if (provider === "claude")
         return "Claude";
@@ -77,4 +83,35 @@ export function displayProvider(provider) {
 }
 export function nowIso() {
     return new Date().toISOString();
+}
+export function truncateText(text, max) {
+    const trimmed = text.trim();
+    if (max <= 0)
+        return "";
+    if (trimmed.length <= max)
+        return trimmed;
+    if (max === 1)
+        return "…";
+    return `${trimmed.slice(0, max - 1)}…`;
+}
+const GIT_DIFF_STATS = /^\d+\s+files?\s+changed\b/i;
+/** Prefer commit message over `git` stdout diff summaries. */
+export function pickCommitSubject(subject) {
+    const trimmed = subject?.trim() ?? "";
+    if (!trimmed)
+        return "";
+    if (GIT_DIFF_STATS.test(trimmed))
+        return truncateText(trimmed, 32);
+    return trimmed;
+}
+export function mergeCommitSubjects(a, b) {
+    const sa = a?.trim() ?? "";
+    const sb = b?.trim() ?? "";
+    const aStats = sa ? GIT_DIFF_STATS.test(sa) : true;
+    const bStats = sb ? GIT_DIFF_STATS.test(sb) : true;
+    if (sa && !aStats)
+        return sa;
+    if (sb && !bStats)
+        return sb;
+    return sa || sb || undefined;
 }

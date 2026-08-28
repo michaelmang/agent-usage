@@ -1,0 +1,79 @@
+---
+title: Command reference
+description: Complete list of agent-usage CLI commands and common flags.
+sidebar:
+  order: 1
+---
+
+Global flags (where supported):
+
+- `--json` — JSON output
+- `--no-sync` — skip sync before the command
+
+## Reports & data
+
+| Command | Description |
+|---------|-------------|
+| `today` / `yesterday` / `week` / `month` | Period usage reports |
+| `project <query>` | Project detail + lifetime |
+| `projects` | Project summary table |
+| `models` | Model breakdown (month) |
+| `milestones` | Commit / model-change timeline |
+| `milestones --commits` | Commit table with costs |
+| `sync` | Refresh from ccusage + session logs |
+| `paths` | Show config and data paths |
+
+## Snapshots & review
+
+| Command | Description |
+|---------|-------------|
+| `snapshot` | Sync + write daily `.json` / `.txt` |
+| `snapshot --notify` | Snapshot + agent-ping phone summary |
+| `review` | LLM workflow feedback for today |
+| `review --date YYYY-MM-DD` | Review a specific date |
+
+## Recommend & JIT
+
+| Command | Description |
+|---------|-------------|
+| `recommend [today\|week\|month]` | Period heuristic recommendations |
+| `recommend "<task>"` | Task agent/model/JIT advice |
+| `jit "<task>"` | Generate JIT harness |
+| `jit generate "<task>"` | Same as above |
+| `jit run <id>` | Execute harness |
+| `jit run <id> --dry-run` | Show command without running |
+| `jit show <id>` | Inspect harness |
+| `jit compile <id>` | Recompile for runtime |
+| `jit edit <id>` | Edit spec in `$EDITOR` |
+| `jit list` | Recent harnesses |
+| `jit capabilities` | Runtime CLI capability probe |
+| `jit experiment "<task>"` | Fixed vs JIT experiment arms |
+
+## Setup & scheduler
+
+| Command | Description |
+|---------|-------------|
+| `setup` | First-time initialization |
+| `install-scheduler` | macOS daily LaunchAgent |
+| `install-scheduler --notify` | + phone notification |
+| `uninstall-scheduler` | Remove LaunchAgent |
+| `scheduler-status` | Show plist state |
+
+## Economics
+
+| Command | Description |
+|---------|-------------|
+| `expense add <provider> <amount> --type subscription\|credits` | Record actual spend |
+| `economics month` / `economics all` | Actual vs API-equivalent |
+
+## Examples
+
+```bash
+agent-usage today --json
+agent-usage project kalam-app
+agent-usage recommend week
+agent-usage recommend "Implement duplicate-index fix we identified"
+agent-usage jit "Debug sync failure" --runtime codex
+agent-usage jit run jit_20260827_0042 --dry-run
+agent-usage expense add claude 100 --type subscription
+```

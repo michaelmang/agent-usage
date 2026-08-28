@@ -4,6 +4,7 @@ import { localDate, localDateFromIso, nowIso } from "../util/format.js";
 import { sourceFingerprint } from "../util/fingerprint.js";
 import { resolveProjectIdentity } from "../util/git.js";
 import { readCachedReport, runCcusageSessionJson, writeCachedReport, } from "./ccusage.js";
+import { effortSharesForModel, scanClaudeEffortTokens, scanCodexEffortTokens, } from "./effort.js";
 import { loadClaudeSessionIndex } from "./claude-sessions.js";
 import { loadCodexSessionIndex } from "./codex-sessions.js";
 function loadKnownMeta(db, provider) {
@@ -76,7 +77,17 @@ function tokensFromBreakdown(b) {
         cost: b.cost ?? 0,
     };
 }
-function applySessionUsage(db, sessionId, provider, session, attributionDate, isBaseline) {
+function scaleUsage(values, share) {
+    return {
+        input: Math.round(values.input * share),
+        output: Math.round(values.output * share),
+        cacheCreate: Math.round(values.cacheCreate * share),
+        cacheRead: Math.round(values.cacheRead * share),
+        total: Math.round(values.total * share),
+        cost: values.cost * share,
+    };
+}
+function applySessionUsage(db, sessionId, provider, session, attributionDate, isBaseline, effortMap) {
     let touched = 0;
     const now = nowIso();
     const breakdowns = session.modelBreakdowns?.length > 0
@@ -109,10 +120,10 @@ function applySessionUsage(db, sessionId, provider, session, attributionDate, is
        last_activity = excluded.last_activity,
        updated_at = excluded.updated_at`);
     const upsertUsage = db.prepare(`INSERT INTO usage(
-       session_id, date, provider, model, input_tokens, output_tokens,
+       session_id, date, provider, model, effort, input_tokens, output_tokens,
        cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id, date, model) DO UPDATE SET
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(session_id, date, model, effort) DO UPDATE SET
        input_tokens = usage.input_tokens + excluded.input_tokens,
        output_tokens = usage.output_tokens + excluded.output_tokens,
        cache_create_tokens = usage.cache_create_tokens + excluded.cache_create_tokens,
@@ -123,10 +134,10 @@ function applySessionUsage(db, sessionId, provider, session, attributionDate, is
     // For baseline historical import we REPLACE usage for that date rather than add,
     // using a dedicated path that sets absolute values.
     const replaceUsage = db.prepare(`INSERT INTO usage(
-       session_id, date, provider, model, input_tokens, output_tokens,
+       session_id, date, provider, model, effort, input_tokens, output_tokens,
        cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id, date, model) DO UPDATE SET
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(session_id, date, model, effort) DO UPDATE SET
        input_tokens = excluded.input_tokens,
        output_tokens = excluded.output_tokens,
        cache_create_tokens = excluded.cache_create_tokens,
@@ -134,21 +145,57 @@ function applySessionUsage(db, sessionId, provider, session, attributionDate, is
        total_tokens = excluded.total_tokens,
        api_equivalent_cost = excluded.api_equivalent_cost,
        captured_at = excluded.captured_at`);
+    const writeUsage = (model, values, mode) => {
+        const shares = effortSharesForModel(effortMap ?? new Map(), model);
+        for (const { effort, share } of shares) {
+            const scaled = scaleUsage(values, share);
+            if (scaled.total <= 0 && scaled.cost <= 0)
+                continue;
+            const args = [
+                sessionId,
+                attributionDate,
+                provider,
+                model,
+                effort,
+                scaled.input,
+                scaled.output,
+                scaled.cacheCreate,
+                scaled.cacheRead,
+                scaled.total,
+                scaled.cost,
+                now,
+            ];
+            if (mode === "replace")
+                replaceUsage.run(...args);
+            else
+                upsertUsage.run(...args);
+            touched += 1;
+        }
+    };
     for (const b of breakdowns) {
         const next = tokensFromBreakdown(b);
         const prev = getPrev.get(sessionId, b.modelName);
         upsertTotals.run(sessionId, provider, b.modelName, next.input, next.output, next.cacheCreate, next.cacheRead, next.total, next.cost, session.metadata?.lastActivity ?? null, now);
         if (isBaseline) {
-            // Seed dated usage with full cumulative totals attributed to last-activity date.
-            // Subsequent syncs only apply positive deltas.
-            replaceUsage.run(sessionId, attributionDate, provider, b.modelName, next.input, next.output, next.cacheCreate, next.cacheRead, next.total, next.cost, now);
-            touched += 1;
+            writeUsage(b.modelName, {
+                input: next.input,
+                output: next.output,
+                cacheCreate: next.cacheCreate,
+                cacheRead: next.cacheRead,
+                total: next.total,
+                cost: next.cost,
+            }, "replace");
             continue;
         }
         if (!prev) {
-            // New session discovered after baseline: treat full amount as delta for today.
-            upsertUsage.run(sessionId, attributionDate, provider, b.modelName, next.input, next.output, next.cacheCreate, next.cacheRead, next.total, next.cost, now);
-            touched += 1;
+            writeUsage(b.modelName, {
+                input: next.input,
+                output: next.output,
+                cacheCreate: next.cacheCreate,
+                cacheRead: next.cacheRead,
+                total: next.total,
+                cost: next.cost,
+            }, "upsert");
             continue;
         }
         const dInput = next.input - prev.input_tokens;
@@ -157,11 +204,16 @@ function applySessionUsage(db, sessionId, provider, session, attributionDate, is
         const dCr = next.cacheRead - prev.cache_read_tokens;
         const dTotal = next.total - prev.total_tokens;
         const dCost = next.cost - prev.api_equivalent_cost;
-        // Guard against counter resets / noise
         if (dTotal <= 0 && dCost <= 0)
             continue;
-        upsertUsage.run(sessionId, attributionDate, provider, b.modelName, Math.max(0, dInput), Math.max(0, dOutput), Math.max(0, dCc), Math.max(0, dCr), Math.max(0, dTotal), Math.max(0, dCost), now);
-        touched += 1;
+        writeUsage(b.modelName, {
+            input: Math.max(0, dInput),
+            output: Math.max(0, dOutput),
+            cacheCreate: Math.max(0, dCc),
+            cacheRead: Math.max(0, dCr),
+            total: Math.max(0, dTotal),
+            cost: Math.max(0, dCost),
+        }, "upsert");
     }
     return touched;
 }
@@ -209,6 +261,18 @@ export async function syncUsage(options) {
     let sessionsUpserted = 0;
     let usageRowsTouched = 0;
     let projectsUpserted = 0;
+    const effortByPeriod = new Map();
+    for (const session of report.session) {
+        const provider = normalizeProvider(session.agent);
+        if (provider !== "claude" && provider !== "codex")
+            continue;
+        const meta = provider === "claude" ? claudeIndex.get(session.period) : codexIndex.get(session.period);
+        if (!meta?.filePath)
+            continue;
+        effortByPeriod.set(session.period, provider === "claude"
+            ? await scanClaudeEffortTokens(meta.filePath)
+            : await scanCodexEffortTokens(meta.filePath));
+    }
     const tx = db.transaction(() => {
         for (const session of report.session) {
             const provider = normalizeProvider(session.agent);
@@ -228,7 +292,7 @@ export async function syncUsage(options) {
             const attributionDate = isBaseline ? (localDateFromIso(lastActivity, tz) ?? today) : today;
             const sessionId = upsertSession(db, provider, session.period, projectId, cwd ?? identity.cwd, null, lastActivity, session.modelsUsed ?? []);
             sessionsUpserted += 1;
-            usageRowsTouched += applySessionUsage(db, sessionId, provider, session, attributionDate, isBaseline);
+            usageRowsTouched += applySessionUsage(db, sessionId, provider, session, attributionDate, isBaseline, effortByPeriod.get(session.period));
         }
         setMeta(db, "source_fingerprint", fingerprint);
         setMeta(db, "last_sync_at", nowIso());
@@ -236,6 +300,14 @@ export async function syncUsage(options) {
             setMeta(db, "baseline_complete", "1");
     });
     tx();
+    // Lightweight milestone scan on recent session files (git commits, model/effort markers).
+    try {
+        const { ingestMilestones } = await import("./milestones.js");
+        await ingestMilestones({ db, maxFiles: 15 });
+    }
+    catch {
+        // non-fatal
+    }
     return {
         skipped: false,
         fingerprint,

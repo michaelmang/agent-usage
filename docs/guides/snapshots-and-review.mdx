@@ -1,0 +1,50 @@
+---
+title: Snapshots & review
+description: Daily JSON/TXT snapshots, optional LLM workflow review, and phone notifications.
+sidebar:
+  order: 2
+---
+
+## Snapshots
+
+```bash
+agent-usage snapshot
+agent-usage snapshot --notify    # also ping phone via agent-ping
+```
+
+Writes to `~/.local/share/agent-usage/snapshots/YYYY-MM-DD.json` and `.txt` after syncing.
+
+Snapshot JSON includes:
+
+- usage report payload
+- sync metadata
+- optional `review` block when generated
+
+## Workflow review (LLM)
+
+```bash
+agent-usage review
+agent-usage review --json
+agent-usage review --no-write     # print only
+```
+
+Sends **today's usage breakdown** and **git commits** (model, effort, per-commit cost) to OpenAI or Anthropic. Output is appended to snapshot files under **Workflow Review**.
+
+**Setup:**
+
+1. Key in `~/.config/agent-usage/env` (required for launchd)
+2. `review` block in `config.yaml` — see [Configuration](/getting-started/configuration)
+
+Combined pipeline:
+
+```bash
+agent-usage snapshot --notify --review
+```
+
+:::tip
+`review` complements `recommend` — review is narrative coaching; recommend is free heuristics.
+:::
+
+## Web dashboard
+
+The Next.js app loads the latest snapshot and can trigger `review` and `reload` via API routes. See [Web dashboard](/guides/web-dashboard).

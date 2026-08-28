@@ -11,6 +11,7 @@ export interface UsageSlice {
   contractValue: number | null;
   provider: string;
   model: string;
+  effort: string;
   inputTokens: number;
   outputTokens: number;
   cacheCreateTokens: number;
@@ -39,6 +40,7 @@ export interface ProviderRollup {
 
 export interface ModelRollup {
   model: string;
+  effort: string;
   totalTokens: number;
   apiEquivalentCost: number;
 }
@@ -74,6 +76,7 @@ function queryUsage(
          p.contract_value AS contractValue,
          u.provider AS provider,
          u.model AS model,
+         COALESCE(u.effort, '') AS effort,
          SUM(u.input_tokens) AS inputTokens,
          SUM(u.output_tokens) AS outputTokens,
          SUM(u.cache_create_tokens) AS cacheCreateTokens,
@@ -85,7 +88,7 @@ function queryUsage(
        LEFT JOIN projects p ON p.id = s.project_id
        WHERE u.date >= ? AND u.date <= ?
        ${projectFilter}
-       GROUP BY p.id, p.name, p.canonical_path, p.client, p.contract_value, u.provider, u.model`,
+       GROUP BY p.id, p.name, p.canonical_path, p.client, p.contract_value, u.provider, u.model, u.effort`,
     )
     .all(...params) as UsageSlice[];
 }
@@ -127,9 +130,16 @@ function rollupSlices(slices: UsageSlice[]): ProjectRollup[] {
     provider.totalTokens += Number(s.totalTokens) || 0;
     provider.apiEquivalentCost += Number(s.apiEquivalentCost) || 0;
 
-    let model = provider.models.find((m) => m.model === s.model);
+    let model = provider.models.find(
+      (m) => m.model === s.model && m.effort === (s.effort ?? ""),
+    );
     if (!model) {
-      model = { model: s.model, totalTokens: 0, apiEquivalentCost: 0 };
+      model = {
+        model: s.model,
+        effort: s.effort ?? "",
+        totalTokens: 0,
+        apiEquivalentCost: 0,
+      };
       provider.models.push(model);
     }
     model.totalTokens += Number(s.totalTokens) || 0;
@@ -270,20 +280,22 @@ export function listModelsSummary(
   from: string,
   to: string,
   db?: Database.Database,
-): Array<{ model: string; totalTokens: number; apiEquivalentCost: number }> {
+): Array<{ model: string; effort: string; totalTokens: number; apiEquivalentCost: number }> {
   const database = db ?? getDb();
   return database
     .prepare(
       `SELECT model,
+              COALESCE(effort, '') AS effort,
               SUM(total_tokens) AS totalTokens,
               SUM(api_equivalent_cost) AS apiEquivalentCost
        FROM usage
        WHERE date >= ? AND date <= ?
-       GROUP BY model
+       GROUP BY model, effort
        ORDER BY apiEquivalentCost DESC`,
     )
     .all(from, to) as Array<{
     model: string;
+    effort: string;
     totalTokens: number;
     apiEquivalentCost: number;
   }>;
@@ -303,16 +315,18 @@ export function lifetimeForProject(
       `SELECT
          u.provider AS provider,
          u.model AS model,
+         COALESCE(u.effort, '') AS effort,
          SUM(u.total_tokens) AS totalTokens,
          SUM(u.api_equivalent_cost) AS apiEquivalentCost
        FROM usage u
        JOIN sessions s ON s.id = u.session_id
        WHERE s.project_id = ?
-       GROUP BY u.provider, u.model`,
+       GROUP BY u.provider, u.model, u.effort`,
     )
     .all(projectId) as Array<{
     provider: string;
     model: string;
+    effort: string;
     totalTokens: number;
     apiEquivalentCost: number;
   }>;
@@ -332,6 +346,7 @@ export function lifetimeForProject(
     provider.apiEquivalentCost += Number(s.apiEquivalentCost) || 0;
     provider.models.push({
       model: s.model,
+      effort: s.effort ?? "",
       totalTokens: Number(s.totalTokens) || 0,
       apiEquivalentCost: Number(s.apiEquivalentCost) || 0,
     });

@@ -1,0 +1,60 @@
+---
+title: Web dashboard
+description: Local Next.js dashboard for snapshots, review, recommendations, and JIT harness log.
+sidebar:
+  order: 5
+---
+
+The web app lives in `web/` — a Next.js dashboard that calls the `agent-usage` CLI via API routes.
+
+## Run locally
+
+```bash
+npm run web:dev
+```
+
+Open http://localhost:3000
+
+Build production bundle:
+
+```bash
+npm run web:build
+cd web && npm run start
+```
+
+## Features
+
+| Action | CLI equivalent |
+|--------|----------------|
+| **Reload snapshot** | `agent-usage snapshot` |
+| **Generate review** | `agent-usage review --json` |
+| **Get recommendations** | `agent-usage recommend today` |
+| **JIT harness log** | List + generate via `jit` commands |
+
+The dashboard shows:
+
+- Usage report by project / model
+- Heuristic recommendation cards
+- Workflow review (Markdown)
+- JIT log with expandable reasoning and generation notes
+
+## Configuration
+
+The server resolves the CLI from:
+
+1. `AGENT_USAGE_CLI` env var
+2. `../dist/cli.js` (repo dev)
+3. `dist/cli.js`
+
+Run `npm run build` in the repo root before `web:dev` so `dist/cli.js` exists.
+
+## API routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/snapshot` | GET | Latest snapshot from disk |
+| `/api/reload` | POST | Sync + snapshot |
+| `/api/review` | POST | Generate review |
+| `/api/recommend` | GET/POST | Fetch or refresh recommendations |
+| `/api/jit` | GET/POST | List harnesses or generate |
+| `/api/jit/[id]` | GET | Harness detail + compilation |

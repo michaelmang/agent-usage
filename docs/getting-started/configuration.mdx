@@ -1,0 +1,71 @@
+---
+title: Configuration
+description: Project aliases, timezone, review and JIT LLM settings in ~/.config/agent-usage/config.yaml.
+sidebar:
+  order: 2
+---
+
+Configuration lives in `~/.config/agent-usage/config.yaml`. API keys for review and full JIT generation go in `~/.config/agent-usage/env` (especially for launchd, which has no interactive shell).
+
+## Project aliases
+
+Keys are **absolute canonical paths** (usually Git repo roots):
+
+```yaml
+timezone: America/New_York
+
+projects:
+  "/Users/you/code/kalam-app":
+    name: "kalam-app"
+    client: "Internal"
+    contract_value: 10000
+
+  "/Users/you/code/monergism-ebooks-reader":
+    name: "monergism-ebooks-reader"
+    aliases:
+      - "/Users/you/code/reader-worktree"
+```
+
+- `client` and `contract_value` appear in project reports when set
+- Sessions outside Git become **Unassigned** (cwd is still stored for later aliasing)
+
+## LLM review
+
+```yaml
+review:
+  provider: openai          # or anthropic
+  model: gpt-4o-mini
+  max_tokens: 1200
+  max_commits: 15
+```
+
+Environment (`~/.config/agent-usage/env`):
+
+```bash
+export OPENAI_API_KEY='sk-...'
+# or
+export ANTHROPIC_API_KEY='sk-ant-...'
+```
+
+## JIT harness generation (full level)
+
+Uses the same provider pattern as review when a task warrants **full** JIT (LLM-generated `HarnessSpec`):
+
+```yaml
+jit:
+  provider: openai
+  model: gpt-4o-mini
+  max_tokens: 2000
+```
+
+`lite` and `none` JIT levels do not call an LLM.
+
+## Phone notifications (optional)
+
+Scheduler + `agent-ping` read `~/.config/agent-ping/env`:
+
+```bash
+export NTFY_TOPIC='your-long-random-topic'
+```
+
+See [Daily scheduler](/guides/scheduler) for the full notify chain.

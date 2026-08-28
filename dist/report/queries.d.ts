@@ -7,6 +7,7 @@ export interface UsageSlice {
     contractValue: number | null;
     provider: string;
     model: string;
+    effort: string;
     inputTokens: number;
     outputTokens: number;
     cacheCreateTokens: number;
@@ -32,6 +33,7 @@ export interface ProviderRollup {
 }
 export interface ModelRollup {
     model: string;
+    effort: string;
     totalTokens: number;
     apiEquivalentCost: number;
 }
@@ -78,6 +80,7 @@ export declare function listProjectsSummary(db?: Database.Database): Array<{
 }>;
 export declare function listModelsSummary(from: string, to: string, db?: Database.Database): Array<{
     model: string;
+    effort: string;
     totalTokens: number;
     apiEquivalentCost: number;
 }>;

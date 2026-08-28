@@ -1,6 +1,20 @@
-# agent-usage
+<p align="center">
+  <img src="assets/logo.png" width="220" alt="agent-usage logo" />
+</p>
 
-Local-first analytics for **Claude Code** and **OpenAI Codex CLI** usage, attributed to Git repositories/projects.
+<h1 align="center">agent-usage</h1>
+
+<p align="center">
+  Local-first analytics for <strong>Claude Code</strong> and <strong>OpenAI Codex CLI</strong> usage, attributed to Git repositories/projects.
+</p>
+
+<p align="center">
+  <a href="#installation">Install</a> ·
+  <a href="docs/">Documentation</a> ·
+  <a href="web/">Web dashboard</a>
+</p>
+
+---
 
 It does **not** reimplement token/cost math. It wraps [`ccusage`](https://github.com/ryoppippi/ccusage) for tokens and API-equivalent cost, then joins that data to Claude/Codex session metadata for working-directory → repo attribution.
 
@@ -122,6 +136,11 @@ projects:
 | `models`                                                         | Model breakdown (month)                      |
 | `sync`                                                           | Explicit refresh (`--force` to ignore cache) |
 | `snapshot`                                                       | Sync + write daily JSON/TXT snapshot         |
+| `review`                                                         | LLM workflow feedback (usage + commits)        |
+| `recommend [week] [project]` or `recommend "<task>"`             | Heuristic tips or task-specific agent/model/JIT advice |
+| `jit "<task>"`                                                   | Generate JIT harness (compile + persist)       |
+| `jit run <id>` / `jit show <id>` / `jit capabilities`            | Execute, inspect, or probe runtime CLIs        |
+| `web`                                                            | Local Next.js dashboard (see `web/README.md`)  |
 | `setup`                                                          | First-time init                              |
 | `install-scheduler` / `uninstall-scheduler` / `scheduler-status` | LaunchAgent                                  |
 | `expense add <provider> <amount> --type subscription\|credits`   | Actual spend                                 |
@@ -140,6 +159,42 @@ agent-usage week
 agent-usage expense add claude 100 --type subscription
 agent-usage economics month
 ```
+
+## LLM workflow review (optional)
+
+`review` sends today's usage breakdown and git commits (with model, effort, and cost per commit) to an LLM and appends structured feedback to the daily snapshot.
+
+```bash
+# One-off review (prints + saves to snapshot files)
+agent-usage review
+
+# Full daily pipeline: snapshot + phone notify + review
+agent-usage snapshot --notify --review
+
+# Scheduled (11:55 PM) with review
+agent-usage install-scheduler --notify --review
+```
+
+**Setup:**
+
+1. Export `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` with `review.provider: openai` in config)
+2. For launchd, put the key in `~/.config/agent-usage/env`:
+
+   ```bash
+   export ANTHROPIC_API_KEY='sk-...'
+   ```
+
+3. Optional config in `~/.config/agent-usage/config.yaml`:
+
+   ```yaml
+   review:
+     provider: anthropic   # or openai
+     model: claude-haiku-4-5
+     max_tokens: 1200
+     max_commits: 15
+   ```
+
+Output is appended to `~/.local/share/agent-usage/snapshots/YYYY-MM-DD.txt` under **Workflow Review** and stored in the `.json` snapshot as `review`. Uses Haiku by default (~pennies per day).
 
 ## Daily scheduler
 
@@ -224,3 +279,14 @@ npm run build
 npm test
 npm run check
 ```
+
+## Documentation site
+
+User guide powered by [Blume](https://useblume.dev). Content is in `docs/`; run the dev server from the repo root:
+
+```bash
+npm run docs:dev      # http://localhost:4321
+npm run docs:build    # output: documentation/dist/
+```
+
+Requires Node.js 22.12+. See [docs/getting-started/documentation-site.mdx](docs/getting-started/documentation-site.mdx) for deploy notes.

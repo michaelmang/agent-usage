@@ -9,9 +9,24 @@ export interface ProjectConfig {
   aliases?: string[];
 }
 
+export interface ReviewConfigYaml {
+  provider?: "anthropic" | "openai";
+  model?: string;
+  max_tokens?: number;
+  max_commits?: number;
+}
+
+export interface JitConfigYaml {
+  provider?: "anthropic" | "openai";
+  model?: string;
+  max_tokens?: number;
+}
+
 export interface AppConfig {
   projects: Record<string, ProjectConfig>;
   timezone?: string;
+  review?: ReviewConfigYaml;
+  jit?: JitConfigYaml;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -32,6 +47,8 @@ export function loadConfig(): AppConfig {
   return {
     projects: parsed.projects ?? {},
     timezone: parsed.timezone ?? DEFAULT_CONFIG.timezone,
+    review: parsed.review,
+    jit: parsed.jit,
   };
 }
 
@@ -42,6 +59,12 @@ export function writeDefaultConfig(force = false): { created: boolean; path: str
   }
   const sample: AppConfig = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    review: {
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      max_tokens: 1200,
+      max_commits: 15,
+    },
     projects: {
       "/absolute/path/to/your-repo": {
         name: "Example Project",

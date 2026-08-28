@@ -6,6 +6,7 @@ export const CONFIG_PATH = join(CONFIG_DIR, "config.yaml");
 export const DATA_DIR = join(HOME, ".local", "share", "agent-usage");
 export const DB_PATH = join(DATA_DIR, "usage.sqlite");
 export const SNAPSHOT_DIR = join(DATA_DIR, "snapshots");
+export const JIT_DIR = join(DATA_DIR, "jit");
 export const LOG_DIR = join(DATA_DIR, "logs");
 export const CACHE_DIR = join(DATA_DIR, "cache");
 export const CLAUDE_PROJECTS_DIR = join(HOME, ".claude", "projects");

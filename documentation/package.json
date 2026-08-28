@@ -1,0 +1,9 @@
+{
+  "name": "agent-usage-docs",
+  "private": true,
+  "scripts": {
+    "dev": "blume dev",
+    "build": "blume build",
+    "preview": "blume preview"
+  }
+}

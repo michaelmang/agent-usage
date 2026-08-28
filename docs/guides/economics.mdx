@@ -1,0 +1,28 @@
+---
+title: Economics
+description: Track actual subscription and credit spend vs API-equivalent usage from ccusage.
+sidebar:
+  order: 7
+---
+
+**API-equivalent cost** estimates what your tokens would cost on metered API pricing (via ccusage). Your **actual** bill is usually subscriptions plus purchased credits.
+
+## Record spend
+
+```bash
+agent-usage expense add claude 100 --type subscription
+agent-usage expense add openai 50 --type credits --note "Extra credits"
+```
+
+Types: `subscription` | `credits`
+
+## Compare
+
+```bash
+agent-usage economics month
+agent-usage economics all --json
+```
+
+Shows actual expenses vs summed API-equivalent usage for the period.
+
+Use this to answer: “Am I getting value relative to what I'm paying Claude/Codex vendors?” — separate from per-commit efficiency in `recommend`.

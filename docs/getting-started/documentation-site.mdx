@@ -1,0 +1,67 @@
+---
+title: Documentation site
+description: Run and build this docs site with Blume (useblume.dev) from the documentation/ folder.
+sidebar:
+  order: 4
+---
+
+This site is powered by [Blume](https://useblume.dev) — markdown-first docs with search, theming, and `llms.txt` for agents.
+
+Content lives in `docs/` at the repo root. The Blume project is in `documentation/` so the docs build does not overwrite the CLI's `dist/` output.
+
+## Requirements
+
+- Node.js **22.12+**
+
+## Dev server
+
+From the repository root:
+
+```bash
+npm run docs:dev
+```
+
+Or from `documentation/`:
+
+```bash
+cd documentation
+npx blume dev
+```
+
+Default URL: http://localhost:4321
+
+## Production build
+
+```bash
+npm run docs:build
+npm run docs:preview
+```
+
+Static HTML is written to `documentation/dist/`.
+
+## Deploy
+
+Point any static host at `documentation/dist/` after `npm run docs:build`:
+
+| Setting | Value |
+|---------|--------|
+| Build command | `npm run docs:build` |
+| Output directory | `documentation/dist` |
+| Node version | 22.12+ |
+
+Set `deployment.site` in `documentation/blume.config.ts` when you have a canonical docs URL (sitemap, Open Graph, canonical tags).
+
+## Edit content
+
+Add or edit `.mdx` files under `docs/`. Use frontmatter for title and description:
+
+```mdx
+---
+title: My page
+description: Short summary for search and SEO.
+---
+
+Your content here.
+```
+
+Folder `meta.ts` files control sidebar groups — see Blume's [folder meta](https://useblume.dev/docs/content/meta) guide.

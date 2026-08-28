@@ -4,6 +4,7 @@ export declare const CONFIG_PATH: string;
 export declare const DATA_DIR: string;
 export declare const DB_PATH: string;
 export declare const SNAPSHOT_DIR: string;
+export declare const JIT_DIR: string;
 export declare const LOG_DIR: string;
 export declare const CACHE_DIR: string;
 export declare const CLAUDE_PROJECTS_DIR: string;

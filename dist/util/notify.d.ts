@@ -1,3 +1,5 @@
+/** Load agent-ping env file (supports `export KEY=value` lines). */
+export declare function loadAgentPingEnv(): void;
 export declare function resolveAgentPingBin(): string | null;
 export declare function notifyUsageSnapshot(opts?: {
     date?: string;

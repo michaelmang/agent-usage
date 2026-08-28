@@ -17,6 +17,8 @@ export function loadConfig() {
     return {
         projects: parsed.projects ?? {},
         timezone: parsed.timezone ?? DEFAULT_CONFIG.timezone,
+        review: parsed.review,
+        jit: parsed.jit,
     };
 }
 export function writeDefaultConfig(force = false) {
@@ -26,6 +28,12 @@ export function writeDefaultConfig(force = false) {
     }
     const sample = {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        review: {
+            provider: "anthropic",
+            model: "claude-haiku-4-5",
+            max_tokens: 1200,
+            max_commits: 15,
+        },
         projects: {
             "/absolute/path/to/your-repo": {
                 name: "Example Project",

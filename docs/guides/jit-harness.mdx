@@ -1,0 +1,94 @@
+---
+title: JIT harnesses
+description: Generate, inspect, compile, and run task-specific execution harnesses for Codex and Claude Code.
+sidebar:
+  order: 4
+---
+
+JIT (Just-in-Time) harnesses adapt **model**, **reasoning effort**, **context**, **planning**, **tools**, and **validation** to the task — without replacing Codex or Claude Code as runtimes.
+
+## Generate
+
+```bash
+agent-usage jit "Determine why EPUB records disappear during synchronization"
+# or
+agent-usage jit generate "Add CSV export to the report endpoint" --json
+```
+
+Pipeline:
+
+```text
+Task → context (metadata only) → recommendation → HarnessSpec → compiler → ExecutionPlan
+```
+
+By default **does not execute** — inspect the plan first.
+
+Example output:
+
+```text
+JIT Harness: jit_20260827_0042
+
+Runtime        Codex
+Model          Sol
+Effort         High
+JIT level      Full
+...
+Run with:
+  agent-usage jit run jit_20260827_0042
+```
+
+## Inspect & edit
+
+```bash
+agent-usage jit show jit_20260827_0042
+agent-usage jit show jit_20260827_0042 --json
+agent-usage jit edit jit_20260827_0042      # $EDITOR on spec.json
+agent-usage jit compile jit_20260827_0042 --runtime claude
+```
+
+Artifacts: `~/.local/share/agent-usage/jit/<id>/` (`spec.json`, `compiled.json`, `instructions.txt`).
+
+## Run
+
+```bash
+agent-usage jit run jit_20260827_0042 --dry-run
+agent-usage jit run jit_20260827_0042
+agent-usage jit "Fix the bug" --run          # generate + execute
+```
+
+Wrapper enforcement covers observable limits (timeouts, exit codes). Hypothesis counts and similar behaviors are **prompt-enforced** unless the runtime emits structured events.
+
+## Capabilities
+
+Probe installed CLIs:
+
+```bash
+agent-usage jit capabilities
+```
+
+Shows native vs prompt vs wrapper vs unsupported controls per runtime.
+
+## Experiment mode
+
+```bash
+agent-usage jit experiment "Resolve the catalog sync failure"
+```
+
+Prepares fixed-profile vs JIT arms without auto-running both.
+
+## List harnesses
+
+```bash
+agent-usage jit list
+agent-usage jit list --json
+```
+
+## Safety
+
+- HarnessSpec is **configuration**, not shell — validation rejects dangerous patterns
+- JIT generation does **not** receive source code by default (metadata only)
+- Harnesses should be **more restrictive** than your normal runtime defaults
+
+## Web UI
+
+The dashboard **JIT harness log** shows recommendation reasoning, generation rationale, and compiled controls. See [Web dashboard](/guides/web-dashboard).

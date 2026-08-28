@@ -1,0 +1,58 @@
+---
+title: Daily scheduler
+description: macOS LaunchAgent for nightly snapshots and optional phone notifications via agent-ping.
+sidebar:
+  order: 6
+---
+
+## Install
+
+```bash
+agent-usage install-scheduler
+agent-usage install-scheduler --notify
+agent-usage install-scheduler --notify --review
+```
+
+Creates `~/Library/LaunchAgents/com.michael.agent-usage.daily.plist` — runs at **11:55 PM** local time:
+
+```bash
+node /path/to/agent-usage/dist/cli.js snapshot --notify
+```
+
+## Status
+
+```bash
+agent-usage scheduler-status
+agent-usage uninstall-scheduler
+```
+
+Logs: `~/.local/share/agent-usage/logs/`
+
+## Phone notifications
+
+`--notify` runs `agent-ping usage` after the snapshot.
+
+Requirements:
+
+1. [agent-ping](https://github.com/michaelmang/agent-ping) installed (`npm link` in that repo)
+2. `NTFY_TOPIC` in `~/.config/agent-ping/env` (launchd has no interactive shell)
+
+```bash
+mkdir -p ~/.config/agent-ping
+cat > ~/.config/agent-ping/env <<'EOF'
+export NTFY_TOPIC='your-long-random-topic'
+EOF
+```
+
+Reinstall the scheduler after changing env files.
+
+## Test manually
+
+```bash
+agent-usage snapshot --notify
+agent-ping usage --best-effort
+```
+
+:::note
+The scheduler runs **snapshot** only by default — not automatic `review`. Run `review` manually or from the web dashboard when you want LLM feedback.
+:::

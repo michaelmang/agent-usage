@@ -1,0 +1,73 @@
+---
+title: First steps
+description: A practical daily workflow — sync, reports, recommendations, review, and JIT harnesses.
+sidebar:
+  order: 3
+---
+
+## 1. See today's usage
+
+Every interactive command syncs first (skipped when sources are unchanged):
+
+```bash
+agent-usage today
+agent-usage project kalam-app
+agent-usage week --json
+```
+
+## 2. Heuristic recommendations (no API)
+
+Period rollup for waste and delegation patterns:
+
+```bash
+agent-usage recommend today
+agent-usage recommend week kalam-app
+```
+
+Task-specific agent / model / JIT advice:
+
+```bash
+agent-usage recommend "Add CSV export to the report endpoint"
+agent-usage recommend "Figure out why records disappear after sync"
+```
+
+## 3. Optional LLM workflow review
+
+```bash
+agent-usage review
+```
+
+Appends narrative feedback to today's snapshot files. Costs roughly pennies per day on Haiku or `gpt-4o-mini`.
+
+## 4. JIT harness for a hard task
+
+Generate a task-specific execution harness (inspect before run):
+
+```bash
+agent-usage jit "Determine why EPUB records disappear during synchronization"
+agent-usage jit show jit_20260827_0042
+agent-usage jit run jit_20260827_0042 --dry-run
+# when ready:
+agent-usage jit run jit_20260827_0042
+```
+
+See [JIT harnesses](/guides/jit-harness).
+
+## 5. Web dashboard
+
+From the repo root:
+
+```bash
+npm run web:dev
+```
+
+Open http://localhost:3000 — reload snapshot, generate review, recommendations, and browse the JIT log.
+
+## 6. Daily automation (macOS)
+
+```bash
+agent-usage install-scheduler --notify
+agent-usage scheduler-status
+```
+
+Runs `snapshot --notify` at 11:55 PM local time.

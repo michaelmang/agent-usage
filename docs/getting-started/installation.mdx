@@ -1,0 +1,67 @@
+---
+title: Installation
+description: Install agent-usage with npx, npm global, or from source — then run setup to initialize SQLite and import history.
+sidebar:
+  order: 1
+---
+
+## npx (no install)
+
+From GitHub (works immediately):
+
+```bash
+npx github:michaelmang/agent-usage
+npx github:michaelmang/agent-usage setup
+```
+
+From npm (when published):
+
+```bash
+npx agent-usage
+npx agent-usage setup
+```
+
+Requires Node.js 20+ and a C/C++ toolchain for `better-sqlite3` (on macOS: `xcode-select --install`).
+
+## Global install
+
+```bash
+npm install -g agent-usage
+agent-usage setup
+```
+
+## From source
+
+```bash
+git clone https://github.com/michaelmang/agent-usage.git
+cd agent-usage
+npm install
+npm run build
+npm link
+agent-usage setup
+```
+
+## What `setup` does
+
+1. Creates `~/.local/share/agent-usage/` and `~/.config/agent-usage/`
+2. Initializes SQLite (`usage.sqlite`)
+3. Writes a sample `config.yaml` if missing (never overwrites without confirmation)
+4. Imports historical sessions via ccusage
+5. Optionally installs the daily LaunchAgent (`install-scheduler`)
+
+## Verify
+
+```bash
+agent-usage paths
+agent-usage today
+agent-usage projects
+```
+
+## Uninstall
+
+```bash
+agent-usage uninstall-scheduler
+npm unlink -g agent-usage
+# optional — remove local data
+rm -rf ~/.local/share/agent-usage ~/.config/agent-usage
+```

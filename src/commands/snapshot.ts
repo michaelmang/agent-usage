@@ -20,16 +20,21 @@ function packageVersion(): string {
 }
 
 import { notifyUsageSnapshot } from "../util/notify.js";
+import { runDailyReview } from "./review.js";
+import type { ReviewResult } from "../review/types.js";
 
 export async function takeSnapshot(opts?: {
   json?: boolean;
   notify?: boolean;
+  review?: boolean;
 }): Promise<{
   date: string;
   jsonPath: string;
   txtPath: string;
   syncMessage: string;
   notifyMessage?: string;
+  review?: ReviewResult;
+  reviewMessage?: string;
 }> {
   const sync = await syncUsage({ force: true });
   const config = loadConfig();
@@ -76,8 +81,19 @@ export async function takeSnapshot(opts?: {
     const notify = notifyUsageSnapshot({ date, file: jsonPath });
     notifyMessage = notify.message;
     if (!notify.ok) {
-      // Do not fail the snapshot if phone notification is unavailable.
       notifyMessage = `Notification skipped: ${notify.message}`;
+    }
+  }
+
+  let review: ReviewResult | undefined;
+  let reviewMessage: string | undefined;
+  if (opts?.review) {
+    try {
+      const reviewResult = await runDailyReview({ date, sync: false, write: true });
+      review = reviewResult.review;
+      reviewMessage = `Review saved (${review.model})`;
+    } catch (err) {
+      reviewMessage = `Review skipped: ${err instanceof Error ? err.message : String(err)}`;
     }
   }
 
@@ -85,5 +101,5 @@ export async function takeSnapshot(opts?: {
     // caller handles json output of snapshot meta
   }
 
-  return { date, jsonPath, txtPath, syncMessage: sync.message, notifyMessage };
+  return { date, jsonPath, txtPath, syncMessage: sync.message, notifyMessage, review, reviewMessage };
 }

@@ -1,0 +1,66 @@
+---
+title: Usage reports
+description: Sync behavior, period reports, projects, models, milestones, and JSON output.
+sidebar:
+  order: 1
+---
+
+## Sync
+
+Most commands sync before querying. ccusage fingerprints sources; unchanged data skips re-import.
+
+```bash
+agent-usage sync              # explicit refresh
+agent-usage sync --force      # ignore cache
+agent-usage today --no-sync   # read DB only
+```
+
+Usage from ccusage is **cumulative per session**. The tool records **positive deltas** on each sync so repeated runs do not double-count.
+
+## Period reports
+
+| Command | Range |
+|---------|--------|
+| `agent-usage` / `today` | Today (local timezone from config) |
+| `yesterday` | Yesterday |
+| `week` | Current calendar week |
+| `month` | Current calendar month |
+
+```bash
+agent-usage today --json
+agent-usage week
+```
+
+Reports show projects → providers → models, with token totals and **API-equivalent cost** (ccusage pricing estimate — not necessarily your subscription bill).
+
+## Project detail
+
+```bash
+agent-usage project kalam-app
+```
+
+Shows period usage, lifetime totals, and contract ratio when `contract_value` is set in config.
+
+## Tables
+
+```bash
+agent-usage projects    # all projects — today / week / month columns
+agent-usage models      # model breakdown (month)
+```
+
+## Milestones
+
+Git commits and model changes parsed from session JSONL:
+
+```bash
+agent-usage milestones
+agent-usage milestones --commits   # table with truncated subjects + cost per commit
+```
+
+## JSON
+
+Pass `--json` (or set globally) on supported commands for scripting:
+
+```bash
+agent-usage today --json | jq '.totals'
+```

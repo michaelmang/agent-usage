@@ -1,4 +1,4 @@
-import { displayModel, displayProvider, formatClock, formatMoney, formatTokens, } from "../util/format.js";
+import { displayModelEffort, displayProvider, formatClock, formatMoney, formatTokens, pickCommitSubject, truncateText, } from "../util/format.js";
 function padRight(s, n) {
     if (s.length >= n)
         return s;
@@ -33,7 +33,7 @@ function formatProjectBlock(project) {
     for (const provider of project.providers) {
         lines.push(`  ${displayProvider(provider.provider)}`);
         for (const model of provider.models) {
-            lines.push(`    ${padRight(displayModel(model.model), 18)}${padLeft(formatTokens(model.totalTokens) + " tokens", 14)}  ${padLeft(formatMoney(model.apiEquivalentCost), 10)}`);
+            lines.push(`    ${padRight(displayModelEffort(model.model, model.effort), 26)}${padLeft(formatTokens(model.totalTokens) + " tokens", 14)}  ${padLeft(formatMoney(model.apiEquivalentCost), 10)}`);
         }
     }
     lines.push("  ───────────────────────────────────────────");
@@ -50,9 +50,28 @@ export function formatProjectsTable(rows) {
     return lines.join("\n");
 }
 export function formatModelsTable(rows) {
-    const lines = [`${padRight("MODEL", 24)}${padLeft("TOKENS", 12)}${padLeft("API-EQUIV", 12)}`];
+    const lines = [
+        `${padRight("MODEL", 30)}${padLeft("TOKENS", 12)}${padLeft("API-EQUIV", 12)}`,
+    ];
     for (const r of rows) {
-        lines.push(`${padRight(displayModel(r.model), 24)}${padLeft(formatTokens(r.totalTokens), 12)}${padLeft(formatMoney(r.apiEquivalentCost), 12)}`);
+        lines.push(`${padRight(displayModelEffort(r.model, r.effort), 30)}${padLeft(formatTokens(r.totalTokens), 12)}${padLeft(formatMoney(r.apiEquivalentCost), 12)}`);
+    }
+    return lines.join("\n");
+}
+export function formatMilestonesTable(rows) {
+    const subjectWidth = 44;
+    const lines = [
+        `${padRight("WHEN", 20)}${padRight("PROJECT", 16)}${padRight("SHA", 8)}${padLeft("COST", 9)}  ${padRight("MODEL/EFFORT", 26)}  ${padRight("COMMIT", subjectWidth)}`,
+    ];
+    for (const row of rows) {
+        const when = String(row.occurredAt).slice(0, 19).replace("T", " ");
+        const sha = row.gitSha ? String(row.gitSha).slice(0, 7) : "—";
+        const model = row.model ? displayModelEffort(String(row.model), row.effort) : "";
+        const cost = row.apiEquivalentCost != null && row.apiEquivalentCost > 0
+            ? formatMoney(Number(row.apiEquivalentCost))
+            : "";
+        const subject = truncateText(pickCommitSubject(row.gitSubject), subjectWidth);
+        lines.push(`${padRight(when, 20)}${padRight(truncateText(String(row.projectName ?? ""), 16), 16)}${padRight(sha, 8)}${padLeft(cost, 9)}  ${padRight(truncateText(model, 26), 26)}  ${subject}`);
     }
     return lines.join("\n");
 }

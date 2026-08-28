@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS usage (
   date TEXT NOT NULL,
   provider TEXT NOT NULL,
   model TEXT NOT NULL,
+  effort TEXT NOT NULL DEFAULT '',
   input_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
   cache_create_tokens INTEGER NOT NULL DEFAULT 0,
@@ -61,7 +62,7 @@ CREATE TABLE IF NOT EXISTS usage (
   total_tokens INTEGER NOT NULL DEFAULT 0,
   api_equivalent_cost REAL NOT NULL DEFAULT 0,
   captured_at TEXT NOT NULL,
-  UNIQUE(session_id, date, model)
+  UNIQUE(session_id, date, model, effort)
 );
 
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -81,6 +82,29 @@ CREATE TABLE IF NOT EXISTS expenses (
   note TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS milestones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  provider_session_id TEXT NOT NULL,
+  project_id INTEGER REFERENCES projects(id),
+  occurred_at TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  git_sha TEXT,
+  git_branch TEXT,
+  git_subject TEXT,
+  model TEXT,
+  effort TEXT,
+  cumulative_input_tokens INTEGER,
+  cumulative_output_tokens INTEGER,
+  api_equivalent_cost REAL,
+  metadata TEXT,
+  UNIQUE(provider, provider_session_id, kind, occurred_at, git_sha, model)
+);
+
+CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_date ON milestones(occurred_at);
 
 CREATE TABLE IF NOT EXISTS sync_state (
   key TEXT PRIMARY KEY,
@@ -102,7 +126,118 @@ export function openDb(path = DB_PATH) {
     mkdirSync(dirname(path), { recursive: true });
     const db = new Database(path);
     db.exec(SCHEMA);
+    migrateUsageEffort(db);
+    migrateJitTables(db);
     return db;
+}
+function migrateJitTables(db) {
+    const tables = db
+        .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='jit_harnesses'`)
+        .get();
+    if (tables)
+        return;
+    db.exec(`
+    CREATE TABLE jit_harnesses (
+      id TEXT PRIMARY KEY,
+      recommendation_id TEXT,
+      project_id INTEGER REFERENCES projects(id),
+      created_at TEXT NOT NULL,
+      jit_level TEXT NOT NULL,
+      runtime TEXT NOT NULL,
+      runtime_version TEXT,
+      model TEXT NOT NULL,
+      effort TEXT,
+      spec_version INTEGER NOT NULL,
+      spec_json TEXT NOT NULL,
+      generated_spec_json TEXT,
+      final_spec_json TEXT,
+      manual_override INTEGER NOT NULL DEFAULT 0,
+      generation_model TEXT,
+      generation_effort TEXT,
+      generation_input_tokens INTEGER,
+      generation_output_tokens INTEGER,
+      generation_actual_cost REAL,
+      generation_duration_ms INTEGER,
+      generation_rationale TEXT,
+      task_recommendation_json TEXT,
+      status TEXT NOT NULL DEFAULT 'generated'
+    );
+
+    CREATE TABLE jit_compilations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jit_harness_id TEXT NOT NULL REFERENCES jit_harnesses(id) ON DELETE CASCADE,
+      compiled_at TEXT NOT NULL,
+      runtime TEXT NOT NULL,
+      runtime_version TEXT,
+      execution_plan_json TEXT NOT NULL,
+      native_control_count INTEGER NOT NULL DEFAULT 0,
+      prompt_control_count INTEGER NOT NULL DEFAULT 0,
+      wrapper_control_count INTEGER NOT NULL DEFAULT 0,
+      unsupported_control_count INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE jit_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jit_harness_id TEXT NOT NULL REFERENCES jit_harnesses(id) ON DELETE CASCADE,
+      started_at TEXT NOT NULL,
+      completed_at TEXT,
+      provider_session_id TEXT,
+      status TEXT NOT NULL,
+      exit_code INTEGER,
+      execution_tokens INTEGER,
+      execution_api_equivalent_cost REAL,
+      actual_credit_cost REAL,
+      commit_count INTEGER,
+      first_commit_at TEXT,
+      associated_commit_ids TEXT,
+      human_interventions INTEGER DEFAULT 0,
+      retry_count INTEGER DEFAULT 0,
+      dry_run INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX idx_jit_harnesses_created ON jit_harnesses(created_at);
+    CREATE INDEX idx_jit_compilations_harness ON jit_compilations(jit_harness_id);
+    CREATE INDEX idx_jit_runs_harness ON jit_runs(jit_harness_id);
+  `);
+}
+function migrateUsageEffort(db) {
+    const cols = db.prepare(`PRAGMA table_info(usage)`).all();
+    if (cols.some((c) => c.name === "effort"))
+        return;
+    db.exec(`
+    CREATE TABLE usage_migrated (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      effort TEXT NOT NULL DEFAULT '',
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_create_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      api_equivalent_cost REAL NOT NULL DEFAULT 0,
+      captured_at TEXT NOT NULL,
+      UNIQUE(session_id, date, model, effort)
+    );
+    INSERT INTO usage_migrated(
+      id, session_id, date, provider, model, effort,
+      input_tokens, output_tokens, cache_create_tokens, cache_read_tokens,
+      total_tokens, api_equivalent_cost, captured_at
+    )
+    SELECT
+      id, session_id, date, provider, model, '',
+      input_tokens, output_tokens, cache_create_tokens, cache_read_tokens,
+      total_tokens, api_equivalent_cost, captured_at
+    FROM usage;
+    DROP TABLE usage;
+    ALTER TABLE usage_migrated RENAME TO usage;
+    CREATE INDEX IF NOT EXISTS idx_usage_date ON usage(date);
+    CREATE INDEX IF NOT EXISTS idx_usage_provider ON usage(provider);
+  `);
+    db.prepare(`INSERT INTO meta(key, value) VALUES ('baseline_complete', '0')
+     ON CONFLICT(key) DO UPDATE SET value = '0'`).run();
 }
 export function getDb() {
     if (!dbInstance) {

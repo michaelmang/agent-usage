@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="agent-usage logo">
+  <defs>
+    <linearGradient id="teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4" />
+      <stop offset="100%" stop-color="#2dd4bf" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fcd34d" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="248" stroke="url(#gold)" stroke-width="6" />
+  <circle cx="256" cy="256" r="232" fill="#0a1118" />
+  <circle cx="256" cy="256" r="220" stroke="url(#gold)" stroke-width="2" opacity="0.5" />
+  <g stroke="url(#gold)" stroke-width="3" fill="url(#gold)">
+    <path d="M256 36l4 8 8 4-8 4-4 8-4-8-8-4 8-4z" />
+    <path d="M256 476l4 8 8 4-8 4-4 8-4-8-8-4 8-4z" />
+    <path d="M36 256l8 4 4 8-4 8-8 4-4-8-8-4 4-8z" />
+    <path d="M476 256l8 4 4 8-4 8-8 4-4-8-8-4 4-8z" />
+  </g>
+  <rect x="168" y="280" width="48" height="72" rx="10" fill="url(#teal)" />
+  <rect x="232" y="248" width="48" height="104" rx="10" fill="url(#teal)" />
+  <rect x="296" y="208" width="48" height="144" rx="10" fill="url(#teal)" />
+  <path
+    d="M344 188l12-20 12 20-12 8-12-8zm0-8l-6-10 6-4 6 4-6 10z"
+    fill="url(#gold)"
+  />
+  <circle cx="220" cy="328" r="14" fill="url(#gold)" />
+  <circle cx="292" cy="328" r="14" fill="url(#teal)" />
+</svg>

@@ -4,9 +4,10 @@ import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { LAUNCH_AGENT_LABEL, LAUNCH_AGENT_PATH, LOG_DIR } from "../paths.js";
+import { LAUNCH_AGENT_LABEL, LAUNCH_AGENT_PATH, LOG_DIR, CONFIG_DIR } from "../paths.js";
 import { ntfyEnvForLaunchd } from "../util/notify.js";
 const AGENT_PING_ENV_FILE = join(homedir(), ".config", "agent-ping", "env");
+const AGENT_USAGE_ENV_FILE = join(CONFIG_DIR, "env");
 function resolveCliPath() {
     const here = fileURLToPath(new URL(".", import.meta.url));
     const candidate = `${here}../cli.js`;
@@ -24,17 +25,19 @@ function resolveCliPath() {
         return repoCli;
     throw new Error("Could not locate agent-usage CLI path for LaunchAgent");
 }
-function loadAgentPingEnvInto(processEnv) {
-    if (!existsSync(AGENT_PING_ENV_FILE))
+function loadEnvFileInto(processEnv, filePath) {
+    if (!existsSync(filePath))
         return;
-    for (const line of readFileSync(AGENT_PING_ENV_FILE, "utf8").split("\n")) {
+    for (const line of readFileSync(filePath, "utf8").split("\n")) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith("#"))
             continue;
         const eq = trimmed.indexOf("=");
         if (eq <= 0)
             continue;
-        const key = trimmed.slice(0, eq).trim();
+        let key = trimmed.slice(0, eq).trim();
+        if (key.startsWith("export "))
+            key = key.slice("export ".length).trim();
         let value = trimmed.slice(eq + 1).trim();
         if ((value.startsWith('"') && value.endsWith('"')) ||
             (value.startsWith("'") && value.endsWith("'"))) {
@@ -44,6 +47,12 @@ function loadAgentPingEnvInto(processEnv) {
             processEnv[key] = value;
     }
 }
+function loadAgentPingEnvInto(processEnv) {
+    loadEnvFileInto(processEnv, AGENT_PING_ENV_FILE);
+}
+function loadAgentUsageEnvInto(processEnv) {
+    loadEnvFileInto(processEnv, AGENT_USAGE_ENV_FILE);
+}
 export function buildPlist(cliPath, opts) {
     mkdirSync(LOG_DIR, { recursive: true });
     const stdout = `${LOG_DIR}/daily.stdout.log`;
@@ -52,8 +61,11 @@ export function buildPlist(cliPath, opts) {
     const args = ["snapshot"];
     if (opts?.notify)
         args.push("--notify");
+    if (opts?.review)
+        args.push("--review");
     const env = ntfyEnvForLaunchd();
     loadAgentPingEnvInto(env);
+    loadAgentUsageEnvInto(env);
     const envEntries = Object.entries(env)
         .map(([key, value]) => `    <key>${key}</key>\n    <string>${value.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</string>`)
         .join("\n");
@@ -96,7 +108,8 @@ ${args.map((arg) => `    <string>${arg}</string>`).join("\n")}
 export function installScheduler(opts) {
     const cliPath = resolveCliPath();
     const notify = opts?.notify ?? Boolean(process.env.NTFY_TOPIC);
-    const plist = buildPlist(cliPath, { notify });
+    const review = opts?.review ?? false;
+    const plist = buildPlist(cliPath, { notify, review });
     mkdirSync(dirname(LAUNCH_AGENT_PATH), { recursive: true });
     writeFileSync(LAUNCH_AGENT_PATH, plist, "utf8");
     try {
@@ -108,7 +121,7 @@ export function installScheduler(opts) {
     execFileSync("launchctl", ["bootstrap", `gui/${process.getuid?.() ?? 501}`, LAUNCH_AGENT_PATH], {
         stdio: "inherit",
     });
-    return { plistPath: LAUNCH_AGENT_PATH, cliPath, notify };
+    return { plistPath: LAUNCH_AGENT_PATH, cliPath, notify, review };
 }
 export function uninstallScheduler() {
     try {
@@ -125,11 +138,13 @@ export function schedulerStatus() {
     const installed = existsSync(LAUNCH_AGENT_PATH);
     let loaded = false;
     let notify = false;
+    let review = false;
     let detail = "";
     if (installed) {
         try {
             const plist = readFileSync(LAUNCH_AGENT_PATH, "utf8");
             notify = plist.includes("<string>--notify</string>");
+            review = plist.includes("<string>--review</string>");
         }
         catch {
             // ignore
@@ -142,5 +157,5 @@ export function schedulerStatus() {
     catch (err) {
         detail = err instanceof Error ? err.message : String(err);
     }
-    return { installed, plistPath: LAUNCH_AGENT_PATH, loaded, notify, detail };
+    return { installed, plistPath: LAUNCH_AGENT_PATH, loaded, notify, review, detail };
 }

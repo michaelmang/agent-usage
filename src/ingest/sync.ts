@@ -11,6 +11,12 @@ import {
   type CcusageSession,
   type ModelBreakdown,
 } from "./ccusage.js";
+import {
+  effortSharesForModel,
+  scanClaudeEffortTokens,
+  scanCodexEffortTokens,
+  type EffortTokenMap,
+} from "./effort.js";
 import { loadClaudeSessionIndex } from "./claude-sessions.js";
 import { loadCodexSessionIndex } from "./codex-sessions.js";
 
@@ -132,6 +138,27 @@ function tokensFromBreakdown(b: ModelBreakdown) {
   };
 }
 
+function scaleUsage(
+  values: {
+    input: number;
+    output: number;
+    cacheCreate: number;
+    cacheRead: number;
+    total: number;
+    cost: number;
+  },
+  share: number,
+) {
+  return {
+    input: Math.round(values.input * share),
+    output: Math.round(values.output * share),
+    cacheCreate: Math.round(values.cacheCreate * share),
+    cacheRead: Math.round(values.cacheRead * share),
+    total: Math.round(values.total * share),
+    cost: values.cost * share,
+  };
+}
+
 function applySessionUsage(
   db: Database.Database,
   sessionId: number,
@@ -139,6 +166,7 @@ function applySessionUsage(
   session: CcusageSession,
   attributionDate: string,
   isBaseline: boolean,
+  effortMap?: EffortTokenMap,
 ): number {
   let touched = 0;
   const now = nowIso();
@@ -181,10 +209,10 @@ function applySessionUsage(
 
   const upsertUsage = db.prepare(
     `INSERT INTO usage(
-       session_id, date, provider, model, input_tokens, output_tokens,
+       session_id, date, provider, model, effort, input_tokens, output_tokens,
        cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id, date, model) DO UPDATE SET
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(session_id, date, model, effort) DO UPDATE SET
        input_tokens = usage.input_tokens + excluded.input_tokens,
        output_tokens = usage.output_tokens + excluded.output_tokens,
        cache_create_tokens = usage.cache_create_tokens + excluded.cache_create_tokens,
@@ -198,10 +226,10 @@ function applySessionUsage(
   // using a dedicated path that sets absolute values.
   const replaceUsage = db.prepare(
     `INSERT INTO usage(
-       session_id, date, provider, model, input_tokens, output_tokens,
+       session_id, date, provider, model, effort, input_tokens, output_tokens,
        cache_create_tokens, cache_read_tokens, total_tokens, api_equivalent_cost, captured_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id, date, model) DO UPDATE SET
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(session_id, date, model, effort) DO UPDATE SET
        input_tokens = excluded.input_tokens,
        output_tokens = excluded.output_tokens,
        cache_create_tokens = excluded.cache_create_tokens,
@@ -210,6 +238,42 @@ function applySessionUsage(
        api_equivalent_cost = excluded.api_equivalent_cost,
        captured_at = excluded.captured_at`,
   );
+
+  const writeUsage = (
+    model: string,
+    values: {
+      input: number;
+      output: number;
+      cacheCreate: number;
+      cacheRead: number;
+      total: number;
+      cost: number;
+    },
+    mode: "replace" | "upsert",
+  ) => {
+    const shares = effortSharesForModel(effortMap ?? new Map(), model);
+    for (const { effort, share } of shares) {
+      const scaled = scaleUsage(values, share);
+      if (scaled.total <= 0 && scaled.cost <= 0) continue;
+      const args = [
+        sessionId,
+        attributionDate,
+        provider,
+        model,
+        effort,
+        scaled.input,
+        scaled.output,
+        scaled.cacheCreate,
+        scaled.cacheRead,
+        scaled.total,
+        scaled.cost,
+        now,
+      ];
+      if (mode === "replace") replaceUsage.run(...args);
+      else upsertUsage.run(...args);
+      touched += 1;
+    }
+  };
 
   for (const b of breakdowns) {
     const next = tokensFromBreakdown(b);
@@ -239,41 +303,34 @@ function applySessionUsage(
     );
 
     if (isBaseline) {
-      // Seed dated usage with full cumulative totals attributed to last-activity date.
-      // Subsequent syncs only apply positive deltas.
-      replaceUsage.run(
-        sessionId,
-        attributionDate,
-        provider,
+      writeUsage(
         b.modelName,
-        next.input,
-        next.output,
-        next.cacheCreate,
-        next.cacheRead,
-        next.total,
-        next.cost,
-        now,
+        {
+          input: next.input,
+          output: next.output,
+          cacheCreate: next.cacheCreate,
+          cacheRead: next.cacheRead,
+          total: next.total,
+          cost: next.cost,
+        },
+        "replace",
       );
-      touched += 1;
       continue;
     }
 
     if (!prev) {
-      // New session discovered after baseline: treat full amount as delta for today.
-      upsertUsage.run(
-        sessionId,
-        attributionDate,
-        provider,
+      writeUsage(
         b.modelName,
-        next.input,
-        next.output,
-        next.cacheCreate,
-        next.cacheRead,
-        next.total,
-        next.cost,
-        now,
+        {
+          input: next.input,
+          output: next.output,
+          cacheCreate: next.cacheCreate,
+          cacheRead: next.cacheRead,
+          total: next.total,
+          cost: next.cost,
+        },
+        "upsert",
       );
-      touched += 1;
       continue;
     }
 
@@ -284,23 +341,20 @@ function applySessionUsage(
     const dTotal = next.total - prev.total_tokens;
     const dCost = next.cost - prev.api_equivalent_cost;
 
-    // Guard against counter resets / noise
     if (dTotal <= 0 && dCost <= 0) continue;
 
-    upsertUsage.run(
-      sessionId,
-      attributionDate,
-      provider,
+    writeUsage(
       b.modelName,
-      Math.max(0, dInput),
-      Math.max(0, dOutput),
-      Math.max(0, dCc),
-      Math.max(0, dCr),
-      Math.max(0, dTotal),
-      Math.max(0, dCost),
-      now,
+      {
+        input: Math.max(0, dInput),
+        output: Math.max(0, dOutput),
+        cacheCreate: Math.max(0, dCc),
+        cacheRead: Math.max(0, dCr),
+        total: Math.max(0, dTotal),
+        cost: Math.max(0, dCost),
+      },
+      "upsert",
     );
-    touched += 1;
   }
 
   return touched;
@@ -357,6 +411,21 @@ export async function syncUsage(options?: {
   let usageRowsTouched = 0;
   let projectsUpserted = 0;
 
+  const effortByPeriod = new Map<string, EffortTokenMap>();
+  for (const session of report!.session) {
+    const provider = normalizeProvider(session.agent);
+    if (provider !== "claude" && provider !== "codex") continue;
+    const meta =
+      provider === "claude" ? claudeIndex.get(session.period) : codexIndex.get(session.period);
+    if (!meta?.filePath) continue;
+    effortByPeriod.set(
+      session.period,
+      provider === "claude"
+        ? await scanClaudeEffortTokens(meta.filePath)
+        : await scanCodexEffortTokens(meta.filePath),
+    );
+  }
+
   const tx = db.transaction(() => {
     for (const session of report!.session) {
       const provider = normalizeProvider(session.agent);
@@ -394,6 +463,7 @@ export async function syncUsage(options?: {
         session,
         attributionDate,
         isBaseline,
+        effortByPeriod.get(session.period),
       );
     }
 
@@ -403,6 +473,14 @@ export async function syncUsage(options?: {
   });
 
   tx();
+
+  // Lightweight milestone scan on recent session files (git commits, model/effort markers).
+  try {
+    const { ingestMilestones } = await import("./milestones.js");
+    await ingestMilestones({ db, maxFiles: 15 });
+  } catch {
+    // non-fatal
+  }
 
   return {
     skipped: false,

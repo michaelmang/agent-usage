@@ -1,0 +1,64 @@
+---
+title: Data & privacy
+description: Where agent-usage stores data, what it collects, and API-equivalent vs actual cost.
+sidebar:
+  order: 2
+---
+
+## Data locations
+
+| Path | Contents |
+|------|----------|
+| `~/.local/share/agent-usage/usage.sqlite` | Authoritative database |
+| `~/.local/share/agent-usage/snapshots/` | Daily `.json` / `.txt` |
+| `~/.local/share/agent-usage/jit/` | JIT harness file artifacts |
+| `~/.local/share/agent-usage/cache/` | Cached ccusage JSON |
+| `~/.local/share/agent-usage/logs/` | Scheduler logs |
+| `~/.config/agent-usage/config.yaml` | Projects, timezone, review/jit |
+| `~/.config/agent-usage/env` | API keys for launchd |
+
+## What is stored
+
+**Stored locally:**
+
+- Repository paths and project names
+- Session ids, providers, models, effort levels
+- Token counts and API-equivalent costs
+- Git commit shas, subjects, branches (from session logs)
+- JIT harness specs and compilation metadata
+
+**Not stored:**
+
+- Prompts and model responses
+- Source code contents
+- Full session transcripts
+
+## API-equivalent cost
+
+Computed by ccusage from local usage logs and published pricing tables. It answers: “What would this usage cost on metered API pricing?”
+
+It is **not** the same as:
+
+- Claude Pro / Max subscription fees
+- Codex subscription or credit packs
+
+Use `expense` and `economics` for actual spend comparison.
+
+## JIT generation privacy
+
+Full JIT generation sends **metadata only** to the LLM:
+
+- Task text
+- Repo name, branch, git status summary
+- Recent commit **messages**
+- Usage telemetry summaries
+- Runtime capability probe results
+
+Source code is not sent unless you add a future opt-in mode.
+
+## Limitations
+
+- Pre-install daily charts attribute cumulative session totals to sync dates; lifetime per project remains accurate
+- Cursor sessions are not ingested yet
+- ccusage must be able to read your local Claude/Codex logs
+- JIT execution spawns your real Codex/Claude CLI — use `--dry-run` when experimenting

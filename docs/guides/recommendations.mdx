@@ -1,0 +1,77 @@
+---
+title: Recommendations
+description: Heuristic model, effort, delegation, and JIT level advice — no LLM for period reports; task mode includes JIT classification.
+sidebar:
+  order: 3
+---
+
+`recommend` analyzes local usage and git-commit milestones. **No API calls** for period rollups.
+
+## Period recommendations
+
+```bash
+agent-usage recommend
+agent-usage recommend week
+agent-usage recommend month kalam-app
+agent-usage recommend --json
+```
+
+Output includes:
+
+- Leaderboard (commits per $100 API-equivalent)
+- Structured bullets: `action`, `watch`, `info`
+- Categories: efficiency, model, effort, delegation, waste
+
+### Example heuristics
+
+| Signal | Typical flag |
+|--------|----------------|
+| High spend, no commits | Waste — spend without commits |
+| Opus-heavy project spend | Watch — consider Sonnet for routine work |
+| Single commit >> median cost | Watch — verify subject justified cost |
+| Claude vs Codex on same project | Delegation — compare $/commit |
+
+## Task recommendations
+
+When the first argument looks like a **task** (spaces or long text), `recommend` classifies the work and suggests runtime, model, effort, and **JIT level**:
+
+```bash
+agent-usage recommend "Rename getUserData to fetchUserData"
+agent-usage recommend "Add CSV export to the report endpoint"
+agent-usage recommend "Figure out why EPUB records disappear after sync"
+```
+
+JSON includes a `jit` block:
+
+```json
+{
+  "jit": {
+    "recommended": true,
+    "level": "full",
+    "confidence": 0.87,
+    "reason": "..."
+  }
+}
+```
+
+JIT levels:
+
+| Level | Meaning |
+|-------|---------|
+| `none` | Fixed profile — mechanical / obvious work |
+| `lite` | Light harness — planning + validation hints |
+| `full` | Complete `HarnessSpec` via JIT generator |
+
+Override runtime:
+
+```bash
+agent-usage recommend "Fix the login bug" --runtime claude
+```
+
+## vs `review`
+
+| | `recommend` | `review` |
+|---|-------------|----------|
+| API cost | None | OpenAI / Anthropic |
+| Output | Bullets + JSON | Prose workflow coach |
+| Best for | Quick checks, scripting | Deep narrative |
